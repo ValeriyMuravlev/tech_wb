@@ -1,0 +1,89 @@
+--Part 1
+
+--1
+SELECT 
+    c.customer_id,
+    c.name,
+    MAX(DATEDIFF(shipment_date, order_date)) AS max_wait_days
+FROM orders o
+JOIN customers c ON o.customer_id = c.customer_id
+GROUP BY c.customer_id, c.name
+ORDER BY max_wait_days DESC
+LIMIT 1;
+
+--2
+SELECT 
+    c.customer_id,
+    c.name,
+    COUNT(o.order_id) AS total_orders,
+    AVG(DATEDIFF(shipment_date, order_date)) AS avg_delivery_days,
+    SUM(o.order_ammount) AS total_amount
+FROM customers c
+JOIN orders o ON c.customer_id = o.customer_id
+GROUP BY c.customer_id, c.name
+ORDER BY total_amount DESC;
+
+
+--3
+SELECT 
+    c.customer_id,
+    c.name,
+    SUM(CASE WHEN DATEDIFF(shipment_date, order_date) > 5 THEN 1 ELSE 0 END) AS delayed_orders,
+    SUM(CASE WHEN order_status = 'Cancel' THEN 1 ELSE 0 END) AS canceled_orders,
+    SUM(order_ammount) AS total_amount
+FROM customers c
+JOIN orders o ON c.customer_id = o.customer_id
+GROUP BY c.customer_id, c.name
+HAVING delayed_orders > 0 OR canceled_orders > 0
+ORDER BY total_amount DESC;
+
+
+--Part 2
+
+-- Общая сумма продаж по категориям
+WITH category_sales AS (
+    SELECT 
+        p.product_category,
+        SUM(o.order_ammount) AS total_sales
+    FROM Orders o
+    JOIN Products p ON o.product_id = p.product_id
+    GROUP BY p.product_category
+),
+-- Категория с максимальной суммой продаж
+top_category AS (
+    SELECT 
+        product_category,
+        total_sales
+    FROM category_sales
+    ORDER BY total_sales DESC
+    LIMIT 1
+),
+-- Продукты с максимальной суммой продаж в своих категориях
+product_max_sales AS (
+    SELECT 
+        p.product_category,
+        p.product_name,
+        SUM(o.order_ammount) AS product_total,
+        RANK() OVER (PARTITION BY p.product_category ORDER BY SUM(o.order_ammount) DESC) AS rnk
+    FROM Orders o
+    JOIN Products p ON o.product_id = p.product_id
+    GROUP BY p.product_category, p.product_name
+)
+-- Итоговый результат
+SELECT 
+    cs.product_category AS "Категория",
+    cs.total_sales AS "Общая сумма продаж",
+    CASE 
+        WHEN cs.product_category = tc.product_category THEN '✅' 
+        ELSE '' 
+    END AS "Лучшая категория",
+    pm.product_name AS "Топовый продукт",
+    pm.product_total AS "Сумма продукта"
+FROM category_sales cs
+LEFT JOIN top_category tc ON cs.product_category = tc.product_category
+LEFT JOIN (
+    SELECT * 
+    FROM product_max_sales 
+    WHERE rnk = 1
+) pm ON cs.product_category = pm.product_category
+ORDER BY cs.total_sales DESC;
