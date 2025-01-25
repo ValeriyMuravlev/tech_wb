@@ -1,0 +1,42 @@
+--1
+SELECT 
+    seller_id,
+    COUNT(DISTINCT category) AS total_categ,
+    ROUND(AVG(rating), 1) AS avg_rating,
+    SUM(revenue) AS total_revenue,
+    CASE 
+        WHEN SUM(revenue) > 50000 THEN 'rich'
+        ELSE 'poor'
+    END AS seller_type
+FROM sellers
+WHERE category != 'Bedding'
+GROUP BY seller_id
+HAVING COUNT(DISTINCT category) > 1
+ORDER BY seller_id;
+
+--2
+SELECT 
+    seller_id,
+    FLOOR(DATEDIFF(NOW(), STR_TO_DATE(date_reg, '%d/%m/%Y')) / 30) AS month_from_registration,
+    (SELECT MAX(delivery_days) - MIN(delivery_days) 
+     FROM sellers 
+     WHERE category != 'Bedding'
+     GROUP BY seller_id
+     HAVING COUNT(DISTINCT category) > 1 AND SUM(revenue) <= 50000
+     LIMIT 1) AS max_delivery_difference
+FROM sellers
+WHERE category != 'Bedding'
+GROUP BY seller_id
+HAVING COUNT(DISTINCT category) > 1 AND SUM(revenue) <= 50000
+ORDER BY seller_id;
+
+--3
+SELECT 
+    seller_id,
+    GROUP_CONCAT(DISTINCT category ORDER BY category SEPARATOR ' - ') AS category_pair
+FROM sellers
+WHERE category != 'Bedding'
+  AND YEAR(STR_TO_DATE(date_reg, '%d/%m/%Y')) = 2022
+GROUP BY seller_id
+HAVING COUNT(DISTINCT category) = 2 AND SUM(revenue) > 75000
+ORDER BY seller_id;
